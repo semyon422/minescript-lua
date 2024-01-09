@@ -117,7 +117,7 @@ end
 
 ---@param f function
 ---@param ... any
-local function run(f, ...)
+function msrt.run(f, ...)
 	local done = false
 
 	wrap(function(...)
@@ -134,7 +134,6 @@ local function run(f, ...)
 			return
 		end
 		if done and not next(msrt.calls) then
-			print_err("quitting")
 			-- print("?0 exit!")  -- bugged, need delay?
 			return
 		end
@@ -144,6 +143,5 @@ end
 msrt.add_task = add_task
 msrt.call_async = call_async
 msrt.print_err = print_err
-msrt.run = run
 
 return msrt
