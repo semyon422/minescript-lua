@@ -1,0 +1,11 @@
+#!/bin/luajit
+package.path = package.path .. ";minescript/?.lua"
+io.stdout:setvbuf("no")
+io.stderr:setvbuf("no")
+
+local msrt = require("msrt")
+
+-- print(arg[1])  -- skip python's -u
+
+local f = assert(loadfile(arg[2]))
+msrt.run(f, unpack(arg, 3))
