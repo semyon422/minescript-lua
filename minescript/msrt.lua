@@ -125,7 +125,7 @@ function msrt.run(f, ...)
 		done = true
 	end)()
 
-	if done then
+	if done and not next(msrt.calls) then
 		return
 	end
 
