@@ -180,6 +180,14 @@ function minescript.unregister_chat_message_listener()
 	msrt.call_async("unregister_chat_message_listener")
 end
 
+msrt.hooks.unregister_chat_message_listener = function()
+	for k, v in pairs(msrt.calls) do
+		if v[1] == "register_chat_message_listener" then
+			msrt.calls[k] = nil
+		end
+	end
+end
+
 ---Registers an interceptor for swallowing chat messages.
 ---@param interceptor function
 ---@param exception_handler function?
@@ -191,6 +199,14 @@ end
 ---@async
 function minescript.unregister_chat_message_interceptor()
 	msrt.call_async("unregister_chat_message_interceptor")
+end
+
+msrt.hooks.unregister_chat_message_interceptor = function()
+	for k, v in pairs(msrt.calls) do
+		if v[1] == "register_chat_message_interceptor" then
+			msrt.calls[k] = nil
+		end
+	end
 end
 
 ---Gets the current GUI screen name, if there is one.
