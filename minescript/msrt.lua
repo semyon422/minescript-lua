@@ -117,7 +117,7 @@ end
 
 ---@param f function
 ---@param ... any
-function msrt.run(f, ...)
+local function _run(f, ...)
 	local done = false
 
 	wrap(function(...)
@@ -134,10 +134,16 @@ function msrt.run(f, ...)
 			return
 		end
 		if done and not next(msrt.calls) then
-			-- print("?0 exit!")  -- bugged, need delay?
 			return
 		end
 	end
+end
+
+---@param f function
+---@param ... any
+function msrt.run(f, ...)
+	_run(f, ...)
+	print("\n?0 exit!")
 end
 
 msrt.add_task = add_task
