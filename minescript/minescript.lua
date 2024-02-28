@@ -8,6 +8,26 @@ function minescript.echo(message)
 	msrt.print_err(message)
 end
 
+---Sends the given message to latest.log.
+---@param message string
+function minescript.log(message)
+	msrt.call_async("log", message)
+end
+
+---Takes a screenshot, similar to pressing the F2 key.
+---@async
+---@param filename string
+---@return boolean
+function minescript.screenshot(filename)
+	return msrt.call_async("screenshot", filename)
+end
+
+---Wait for all previously issued script commands from this job to complete.
+---@async
+function minescript.flush()
+	return msrt.call_async("flush")
+end
+
 ---Gets the local player's name.
 ---@async
 ---@return string
@@ -24,6 +44,11 @@ end
 
 ---Sets the player's position, and optionally orientation.
 ---@async
+---@param x number
+---@param y number
+---@param z number
+---@param yaw number?
+---@param pitch number?
 ---@return boolean
 function minescript.player_set_position(x, y, z, yaw, pitch)
 	return msrt.call_async("player_set_position", x, y, z, yaw, pitch)
@@ -46,15 +71,17 @@ end
 ---Swaps an inventory item into the hotbar.
 ---@async
 ---@param slot number
+---@return number
 function minescript.player_inventory_slot_to_hotbar(slot)
-	msrt.call_async("player_inventory_slot_to_hotbar", slot)
+	return msrt.call_async("player_inventory_slot_to_hotbar", slot)
 end
 
 ---Selects the given slot within the player's hotbar.
 ---@async
 ---@param slot number
+---@return number
 function minescript.player_inventory_select_slot(slot)
-	msrt.call_async("player_inventory_select_slot", slot)
+	return msrt.call_async("player_inventory_select_slot", slot)
 end
 
 ---Simulating press/release.
@@ -67,7 +94,7 @@ end
 
 ---Gets the local player's orientation.
 ---@async
----@return number
+---@return table
 function minescript.player_orientation()
 	return msrt.call_async("player_orientation")
 end
@@ -76,8 +103,9 @@ end
 ---@async
 ---@param yaw number
 ---@param pitch number
+---@return boolean
 function minescript.player_set_orientation(yaw, pitch)
-	msrt.call_async("player_set_orientation", yaw, pitch)
+	return msrt.call_async("player_set_orientation", yaw, pitch)
 end
 
 ---Gets info about the nearest block, if any, in the local player's crosshairs.
