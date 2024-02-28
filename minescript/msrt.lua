@@ -122,6 +122,7 @@ local function _run(f, ...)
 
 	wrap(function(...)
 		f()
+		msrt.call_async("flush")
 		done = true
 	end)()
 
@@ -143,7 +144,7 @@ end
 ---@param ... any
 function msrt.run(f, ...)
 	_run(f, ...)
-	print("\n?0 exit!")
+	print("?0 exit!")
 end
 
 msrt.add_task = add_task
