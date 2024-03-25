@@ -11,7 +11,7 @@ local java = setmetatable({}, {__index = function(t, k)
 	end
 	return t[k]
 end})
--- function java.call_method(...) return msrt.call_async("R", "java_call_method", ...) end
+function java.call_method(...) return msrt.call_async("R", "java_call_method", ...) end
 
 local java_reflect = {}
 
@@ -63,6 +63,9 @@ end
 java_reflect.to_java_type = to_java_type
 
 local function from_java_type(jhandle)
+	if jhandle == nil then
+		return jhandle
+	end
 	local cls = java.call_method(jhandle, _Object.getClass)
 	local cls_name = java.call_method(cls, _Class.getName)
 	local java_type = java.to_string(cls_name)

@@ -2,6 +2,8 @@ local json = require("json")
 
 local msrt = {}
 
+function msrt.log(msg) end
+
 ---@param s string
 local function print_err(s)
 	io.stderr:write(tostring(s) .. "\n")
@@ -22,16 +24,18 @@ local function wrap(f)
 		return call(f, ...)
 	end
 end
+msrt.wrap = wrap
 
 local _next_fcallid = 1000
 msrt.calls = {}
-msrt.hooks = {}
 
 local _FUNCTION_PREFIX = "?mnsc:"
 
 local function call_noreturn(executor_id, func_name, ...)
 	local json_args = json.encode({...})
-    print(("%s0 %s %s %s"):format(_FUNCTION_PREFIX, executor_id, func_name, json_args))
+	local msg = ("%s0 %s %s %s"):format(_FUNCTION_PREFIX, executor_id, func_name, json_args)
+	msrt.log(msg)
+    print(msg)
 end
 
 ---Calls a script function, asynchronously streaming return value(s).
@@ -39,22 +43,16 @@ end
 ---@param func_name string name of Minescript function to call
 ---@param args table?
 ---@param retval_handler function callback invoked for each return value
----@param exception_handler function?
+---@param exception_handler function
 ---@return number
 local function send(executor_id, func_name, args, retval_handler, exception_handler)
-	retval_handler = wrap(retval_handler)
-	exception_handler = exception_handler and wrap(exception_handler)
-
 	_next_fcallid = _next_fcallid + 1
 	msrt.calls[_next_fcallid] = {func_name, retval_handler, exception_handler}
 
 	local json_args = json.encode(args or {})
-	print(("%s%s %s %s %s"):format(_FUNCTION_PREFIX, _next_fcallid, executor_id, func_name, json_args))
-
-	local hook = msrt.hooks[func_name]
-	if hook then
-		hook()
-	end
+	local msg = ("%s%s %s %s %s"):format(_FUNCTION_PREFIX, _next_fcallid, executor_id, func_name, json_args)
+	msrt.log(msg)
+	print(msg)
 
 	return _next_fcallid
 end
@@ -65,7 +63,7 @@ end
 
 ---@async
 ---@param executor_id string
----@param on_error function?
+---@param on_error function
 ---@param func_name string name of Minescript function to call
 ---@param ... any
 ---@return any ret script function's return value: number, string, list, or dict
@@ -76,12 +74,10 @@ local function call_async_error(executor_id, on_error, func_name, ...)
 		assert(coroutine.resume(c, retval))
 	end
 
-	send(executor_id, func_name, {...}, ret, on_error or error)
+	send(executor_id, func_name, {...}, ret, on_error)
 
 	return coroutine.yield()
 end
-
-local got_error = {}
 
 ---@async
 ---@param executor_id string
@@ -94,11 +90,11 @@ local function call_async(executor_id, func_name, ...)
 	local err
 	local function errf(e)
 		err = e
-		assert(coroutine.resume(c, got_error))
+		assert(coroutine.resume(c))
 	end
 
 	local retval = call_async_error(executor_id, errf, func_name, ...)
-	if retval == got_error then
+	if err then
 		error(err)
 	end
 
@@ -107,6 +103,7 @@ end
 
 local function service_step()
 	local json_input = io.read("*L")
+	msrt.log(json_input)
 	local ok, reply = xpcall(json.decode, debug.traceback, json_input)
 	if not ok then
 		print_err(reply)
@@ -149,7 +146,7 @@ local function service_step()
 		else
 			exception_handler(("%s(%q)"):format(e.type, e.message))
 		end
-	elseif reply.retval then
+	else
 		retval_handler(reply.retval)
 	end
 
@@ -185,7 +182,7 @@ end
 ---@param ... any
 function msrt.run(f, ...)
 	_run(f, ...)
-	call_noreturn("exit!", nil, "T")
+	call_noreturn("T", "exit!")
 end
 
 msrt.send = send
