@@ -27,43 +27,86 @@ local _next_fcallid = 1000
 msrt.calls = {}
 msrt.hooks = {}
 
+local _FUNCTION_PREFIX = "?mnsc:"
+
+local function call_noreturn(executor_id, func_name, ...)
+	local json_args = json.encode({...})
+    print(("%s0 %s %s %s"):format(_FUNCTION_PREFIX, executor_id, func_name, json_args))
+end
+
 ---Calls a script function, asynchronously streaming return value(s).
+---@param executor_id string
 ---@param func_name string name of Minescript function to call
 ---@param args table?
 ---@param retval_handler function callback invoked for each return value
 ---@param exception_handler function?
-local function add_task(func_name, args, retval_handler, exception_handler)
+---@return number
+local function send(executor_id, func_name, args, retval_handler, exception_handler)
 	retval_handler = wrap(retval_handler)
 	exception_handler = exception_handler and wrap(exception_handler)
 
 	_next_fcallid = _next_fcallid + 1
 	msrt.calls[_next_fcallid] = {func_name, retval_handler, exception_handler}
-	print(("?%s %s %s"):format(_next_fcallid, func_name, json.encode(args or {})))
+
+	local json_args = json.encode(args or {})
+	print(("%s%s %s %s %s"):format(_FUNCTION_PREFIX, _next_fcallid, executor_id, func_name, json_args))
 
 	local hook = msrt.hooks[func_name]
 	if hook then
 		hook()
 	end
+
+	return _next_fcallid
 end
 
----Calls a script function and returns the function's return value.
+function msrt.cancel(func_call_id, func_name, executor_id)
+    call_noreturn(executor_id, "cancelfn!", func_call_id, func_name)
+end
+
+---@async
+---@param executor_id string
+---@param on_error function?
 ---@param func_name string name of Minescript function to call
 ---@param ... any
 ---@return any ret script function's return value: number, string, list, or dict
-local function call_async(func_name, ...)
+local function call_async_error(executor_id, on_error, func_name, ...)
 	local c = assert(coroutine.running(), "attempt to yield from outside a coroutine")
 
 	local function ret(retval)
 		assert(coroutine.resume(c, retval))
 	end
 
-	add_task(func_name, {...}, ret, error)
+	send(executor_id, func_name, {...}, ret, on_error or error)
 
 	return coroutine.yield()
 end
 
+local got_error = {}
+
+---@async
+---@param executor_id string
+---@param func_name string name of Minescript function to call
+---@param ... any
+---@return any ret script function's return value: number, string, list, or dict
+local function call_async(executor_id, func_name, ...)
+	local c = assert(coroutine.running(), "attempt to yield from outside a coroutine")
+
+	local err
+	local function errf(e)
+		err = e
+		assert(coroutine.resume(c, got_error))
+	end
+
+	local retval = call_async_error(executor_id, errf, func_name, ...)
+	if retval == got_error then
+		error(err)
+	end
+
+	return retval
+end
+
 local function service_step()
-	local json_input = io.read()
+	local json_input = io.read("*L")
 	local ok, reply = xpcall(json.decode, debug.traceback, json_input)
 	if not ok then
 		print_err(reply)
@@ -97,12 +140,14 @@ local function service_step()
 	end
 
 	if reply.except then
-		local exception_type = reply.except.type
-		local message = reply.except.message
+		local e = reply.except
 		if not exception_handler then
-			print_err(("%s in %s: %s"):format(exception_type, func_name, message))
+			print_err(("%s in %s: %s %s"):format(e.type, func_name, e.message, e.desc))
+			for _, s in ipairs(e.stack) do
+				print_err(("%s %s %s"):format(s.file, s.method, s.line))
+			end
 		else
-			exception_handler(("%s(%q)"):format(exception_type, message))
+			exception_handler(("%s(%q)"):format(e.type, e.message))
 		end
 	elseif reply.retval then
 		retval_handler(reply.retval)
@@ -122,19 +167,15 @@ local function _run(f, ...)
 
 	wrap(function(...)
 		f()
-		msrt.call_async("flush")
+		call_async("T", "flush")
 		done = true
 	end)()
 
-	if done and not next(msrt.calls) then
-		return
-	end
-
 	while true do
-		if service_step() then
+		if done and not next(msrt.calls) then
 			return
 		end
-		if done and not next(msrt.calls) then
+		if service_step() then
 			return
 		end
 	end
@@ -144,11 +185,12 @@ end
 ---@param ... any
 function msrt.run(f, ...)
 	_run(f, ...)
-	print("?0 exit!")
+	call_noreturn("exit!", nil, "T")
 end
 
-msrt.add_task = add_task
+msrt.send = send
 msrt.call_async = call_async
+msrt.call_noreturn = call_noreturn
 msrt.print_err = print_err
 
 return msrt
